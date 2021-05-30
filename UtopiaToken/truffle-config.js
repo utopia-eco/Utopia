@@ -84,7 +84,7 @@ module.exports = {
       ),
       network_id: 97,
       skipDryRun: true,
-      gas: 9500000,
+      gas: 15000000,
     },
     // bsc: {
     //   provider: () => new HDWalletProvider(mnemonic, `https://bsc-dataseed1.binance.org`),
@@ -110,7 +110,7 @@ module.exports = {
       // settings: {          // See the solidity docs for advice about optimization and evmVersion
        optimizer: {
          enabled: true,
-         runs: 200
+         runs: 10
        },
       //  evmVersion: "byzantium"
       // }
@@ -125,5 +125,9 @@ module.exports = {
 
   db: {
     enabled: false
-  }
+  },
+  plugins: [
+    'truffle-contract-size'
+  ]
+
 };

@@ -2,7 +2,8 @@ var UtopiaToken = artifacts.require("UtopiaToken");
 var UtopiaPresale = artifacts.require("UtopiaPresale");
 
 module.exports = async function(deployer) {
-    await deployer.deploy(UtopiaToken);
+    var otherAccount = '0x431893403d0bd9FEE90E5ed5a9ed1BC93Be640e7';
+    await deployer.deploy(UtopiaToken, otherAccount, otherAccount, otherAccount, otherAccount, otherAccount);
     let token = await UtopiaToken.deployed()
 
     // Thats max 1 BNB per address

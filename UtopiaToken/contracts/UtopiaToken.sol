@@ -698,13 +698,28 @@ contract UtopiaToken is Context, IERC20, Ownable {
 
     string private _name = "Utopia";
     string private _symbol = "UTOPIA";
-    uint8 private _decimals = 9;
+    uint256 private _decimals = 9;
     
     uint256 public _taxFee = 5;
     uint256 private _previousTaxFee = _taxFee;
     
     uint256 public _liquidityFee = 5;
     uint256 private _previousLiquidityFee = _liquidityFee;
+
+    address payable public marketingWallet;
+    address payable public charityWallet;
+    address payable public developmentWallet;
+    address payable public stabilityReserveWallet;
+    address payable public eventWallet;
+
+    uint256 public marketingBnbProportion;
+    uint256 public charityBnbProportion;
+    uint256 public developmentBnbProportion;
+    uint256 public reserveBnbProportion;
+    
+    uint256 public marketingUtpProportion;
+    uint256 public developmentUtpProportion;
+    uint256 public reserveUtpProportion;
 
     IUniswapV2Router02 public uniswapV2Router;
     address public uniswapV2Pair;
@@ -718,11 +733,6 @@ contract UtopiaToken is Context, IERC20, Ownable {
     
     event MinTokensBeforeSwapUpdated(uint256 minTokensBeforeSwap);
     event SwapAndLiquifyEnabledUpdated(bool enabled);
-    event SwapAndLiquify(
-        uint256 tokensSwapped,
-        uint256 ethReceived,
-        uint256 tokensIntoLiqudity
-    );
     
     modifier lockTheSwap {
         inSwapAndLiquify = true;
@@ -730,7 +740,11 @@ contract UtopiaToken is Context, IERC20, Ownable {
         inSwapAndLiquify = false;
     }
     
-    constructor () public {
+    constructor (address payable _marketingWallet, 
+                    address payable _charityWallet, 
+                    address payable _developmentWallet, 
+                    address payable _stabilityReserveWallet, 
+                    address payable _eventWallet) public {
         _rOwned[_msgSender()] = _rTotal;
         
         // IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // Mainnet
@@ -743,9 +757,28 @@ contract UtopiaToken is Context, IERC20, Ownable {
         // set the rest of the contract variables
         uniswapV2Router = _uniswapV2Router;
         
-        //exclude owner and this contract from fee
+        marketingWallet = _marketingWallet;
+        charityWallet = _charityWallet;
+        eventWallet = _eventWallet;
+        developmentWallet = _developmentWallet;
+        stabilityReserveWallet = _stabilityReserveWallet;
+        eventWallet = _eventWallet;
+
+        //exclude owner, this contract and official UTP wallets from fee
         _isExcludedFromFee[owner()] = true;
         _isExcludedFromFee[address(this)] = true;
+        _isExcludedFromFee[marketingWallet] = true;
+        _isExcludedFromFee[eventWallet] = true;
+        _isExcludedFromFee[stabilityReserveWallet] = true;
+
+        marketingBnbProportion = 20;
+        charityBnbProportion = 60;
+        developmentBnbProportion = 10;
+        reserveBnbProportion = 10;
+
+        marketingUtpProportion = 75;
+        developmentUtpProportion = 10;
+        reserveUtpProportion = 15;
         
         emit Transfer(address(0), _msgSender(), _tTotal);
     }
@@ -758,7 +791,7 @@ contract UtopiaToken is Context, IERC20, Ownable {
         return _symbol;
     }
 
-    function decimals() public view returns (uint8) {
+    function decimals() public view returns (uint256) {
         return _decimals;
     }
 
@@ -1070,8 +1103,8 @@ contract UtopiaToken is Context, IERC20, Ownable {
 
     function swapAndLiquify(uint256 contractTokenBalance) private lockTheSwap {
         // split the contract balance into halves
-        uint256 half = contractTokenBalance.div(2);
-        uint256 otherHalf = contractTokenBalance.sub(half);
+        uint256 utpForSwap = contractTokenBalance.div(2);
+        uint256 utpRemaining = contractTokenBalance.sub(utpForSwap);
 
         // capture the contract's current ETH balance.
         // this is so that we can capture exactly the amount of ETH that the
@@ -1079,19 +1112,45 @@ contract UtopiaToken is Context, IERC20, Ownable {
         // has been manually sent to the contract
         uint256 initialBalance = address(this).balance;
 
-        // swap tokens for ETH
-        swapTokensForEth(half); // <- this breaks the ETH -> HATE swap when swap+liquify is triggered
+        // swap tokens for BNB
+        swapTokensForBnb(utpForSwap);
 
-        // how much ETH did we just swap into?
-        uint256 newBalance = address(this).balance.sub(initialBalance);
+        // how much BNB did we just swap into?
+        uint256 newBnbBalance = address(this).balance.sub(initialBalance);
+
+        uint256 bnbForLiquify = newBnbBalance.mul(40).div(10000);
+        uint256 bnbForExtraction = newBnbBalance.div(10000).sub(bnbForLiquify);
+        uint256 utpForLiquify = utpRemaining.mul(40).div(10000);
+        uint256 utpForExtraction = utpRemaining.div(10000).sub(utpForLiquify);
+
+        uint256 marketingBnb = bnbForExtraction.mul(marketingBnbProportion);
+        uint256 charityBnb = bnbForExtraction.mul(charityBnbProportion);
+        uint256 developmentBnb = bnbForExtraction.mul(developmentBnbProportion);
+        uint256 reserveBnb = bnbForExtraction.sub(marketingBnb).sub(charityBnb).sub(developmentBnb);
+
+        uint256 marketingUtp = utpForExtraction.mul(marketingUtpProportion);
+        uint256 developmentUtp = utpForExtraction.mul(developmentUtpProportion);
+        uint256 reserveUtp = utpForExtraction.sub(marketingUtp).sub(developmentUtp);
+
+        marketingWallet.transfer(marketingBnb);
+        charityWallet.transfer(charityBnb);
+        developmentWallet.transfer(developmentBnb);
+        stabilityReserveWallet.transfer(reserveBnb);
+
+         // approve token transfers
+        _approve(address(this), marketingWallet, marketingUtp);
+        _approve(address(this), developmentWallet, developmentUtp);
+        _approve(address(this), stabilityReserveWallet,  reserveBnb);
+
+        _transfer(address(this), marketingWallet, marketingUtp);
+        _transfer(address(this), developmentWallet, developmentUtp);
+        _transfer(address(this), stabilityReserveWallet,  reserveUtp);
 
         // add liquidity to uniswap
-        addLiquidity(otherHalf, newBalance);
-        
-        emit SwapAndLiquify(half, newBalance, otherHalf);
+        addLiquidity(utpForLiquify, bnbForLiquify);
     }
 
-    function swapTokensForEth(uint256 tokenAmount) private {
+    function swapTokensForBnb(uint256 tokenAmount) private {
         // generate the uniswap pair path of token -> weth
         address[] memory path = new address[](2);
         path[0] = address(this);
