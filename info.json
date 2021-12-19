@@ -1,0 +1,11 @@
+{
+    "name": "UTOPIA",
+    "website": "https://utopia.cc",
+    "description": "UTOPIA is the token for the Utopia Decentralized Exchange, Decentralized Launchpad, and the Utopia World game with a built-in NFT Marketplace. UTOPIA is the project that will make it possible for every single Joe/Jill Schmo to trade with ease in the decentralized cryptocurrency space.",
+    "explorer": "https://bscscan.com/token/0x391748379827340DB2daFFC845AC6Cffad431B50",
+    "type": "BEP20",
+    "symbol": "TOPIA",
+    "decimals": 18,
+    "status": "active",
+    "id": "0x391748379827340DB2daFFC845AC6Cffad431B50"
+}
